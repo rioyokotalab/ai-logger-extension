@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "AI Logger",
+  "version": "1.0",
+  "description": "Logs ChatGPT conversations to a local server",
+  "permissions": [
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "http://127.0.0.1:8788/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": ["content_chatgpt.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["content_claude.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
