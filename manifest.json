@@ -11,6 +11,7 @@
     "https://chat.openai.com/*",
     "https://claude.ai/*",
     "https://gemini.google.com/*",
+    "https://bard.google.com/*",
     "https://gemini.google.com/app/*",
     "http://127.0.0.1:8788/*"
   ],
@@ -35,6 +36,7 @@
     {
       "matches": [
         "https://gemini.google.com/*",
+        "https://bard.google.com/*",
         "https://gemini.google.com/app/*"
       ],
       "js": ["content_gemini.js"],

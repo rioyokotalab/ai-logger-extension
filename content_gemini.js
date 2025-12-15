@@ -1,11 +1,18 @@
+// content_gemini.js
 (function () {
   console.log("[AI Logger] Gemini content script loaded");
 
-  // Gemini messages live under #chat-history as custom elements:
-  //   user-query-content  -> your prompts
-  //   message-content     -> Gemini's replies
-  // (based on public bookmarklets & selectors)  [oai_citation:1‡GitHub](https://github.com/give-me/bookmarklets?utm_source=chatgpt.com)
-  const EVENTS_SELECTOR = "user-query-content, message-content";
+  // We'll be generous with selectors because Gemini's DOM can differ by region/account.
+  // We dedupe per element so a bit of extra noise is okay.
+  const MESSAGE_SELECTOR = [
+    "user-query-content",
+    "message-content",
+    "model-response-content",
+    "[data-message-author]",
+    "[data-utterance-role]",
+    "[data-testid*='message']",
+    "[data-qa*='message']"
+  ].join(",");
 
   const loggedTextByElement = new WeakMap();
   let scanTimeoutId = null;
@@ -29,39 +36,60 @@
     });
   }
 
+  function guessRole(el, index) {
+    if (!(el instanceof Element)) return "unknown";
+
+    const tag = el.tagName.toLowerCase();
+    const classes = (el.className || "").toString().toLowerCase();
+    const attrs = [
+      el.getAttribute("data-message-author"),
+      el.getAttribute("data-utterance-role"),
+      el.getAttribute("data-testid"),
+      el.getAttribute("data-qa")
+    ]
+      .filter(Boolean)
+      .map((v) => v.toLowerCase())
+      .join(" ");
+
+    const blob = [tag, classes, attrs].join(" ");
+
+    if (blob.includes("user")) return "user";
+    if (blob.includes("assistant")) return "assistant";
+    if (blob.includes("model")) return "assistant";
+    if (blob.includes("response")) return "assistant";
+
+    // Fallback heuristic: even index = user, odd = assistant
+    return index % 2 === 0 ? "user" : "assistant";
+  }
+
   function scanMessages() {
-    const chatRoot = document.querySelector("#chat-history") || document.body;
+    const chatRoot =
+      document.querySelector("#chat-history") ||
+      document.querySelector("main") ||
+      document.body;
+
     if (!chatRoot) {
-      console.warn("[AI Logger/Gemini] #chat-history not found");
+      console.warn("[AI Logger/Gemini] No chat root yet");
       return;
     }
 
-    const events = chatRoot.querySelectorAll(EVENTS_SELECTOR);
-    console.log(
-      "[AI Logger/Gemini] scanMessages, found",
-      events.length,
-      "events"
-    );
+    const nodes = chatRoot.querySelectorAll(MESSAGE_SELECTOR);
+    console.log("[AI Logger/Gemini] scanMessages, found", nodes.length, "candidates");
 
     const now = new Date().toISOString();
 
-    events.forEach((el, index) => {
+    nodes.forEach((el, idx) => {
       if (!(el instanceof Element)) return;
-
-      // Heuristic from public scripts: events alternate user/AI:
-      // index 0: user, 1: assistant, 2: user, 3: assistant, ...
-      const role = index % 2 === 0 ? "user" : "assistant";
 
       const text = (el.innerText || "").trim();
       if (!text) return;
 
       const prev = loggedTextByElement.get(el);
-      if (prev === text) {
-        // Same element + same text as last time → skip
-        return;
-      }
+      if (prev === text) return;          // already logged this exact element text
+
       loggedTextByElement.set(el, text);
 
+      const role = guessRole(el, idx);
       const entry = {
         ts: now,
         platform: "gemini",
@@ -81,7 +109,7 @@
     scanTimeoutId = setTimeout(() => {
       scanTimeoutId = null;
       scanMessages();
-    }, 500); // wait a bit after DOM settles (handles streaming)
+    }, 500); // wait for streaming/DOM to settle
   }
 
   function startObserver() {
@@ -106,9 +134,7 @@
           break;
         }
       }
-      if (shouldScan) {
-        scheduleScan();
-      }
+      if (shouldScan) scheduleScan();
     });
 
     observer.observe(chatRoot, {
