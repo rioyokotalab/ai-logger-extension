@@ -10,6 +10,8 @@
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
     "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://gemini.google.com/app/*",
     "http://127.0.0.1:8788/*"
   ],
   "background": {
@@ -28,6 +30,14 @@
     {
       "matches": ["https://claude.ai/*"],
       "js": ["content_claude.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://gemini.google.com/*",
+        "https://gemini.google.com/app/*"
+      ],
+      "js": ["content_gemini.js"],
       "run_at": "document_idle"
     }
   ]
